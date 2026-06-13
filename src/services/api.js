@@ -6,7 +6,6 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// Add token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
@@ -29,6 +28,39 @@ export const authAPI = {
       email,
       password,
     }),
+};
+
+export const clinicAPI = {
+  getClinic: (clinicId) =>
+    api.get(`/admin/clinic/${clinicId}`),
+
+  updateClinic: (clinicId, data) =>
+    api.put(`/admin/clinic/${clinicId}`, data),
+};
+
+export const appointmentAPI = {
+  list: (status = null) => {
+    let url = '/admin/appointments/';
+    if (status) url += `?status=${status}`;
+    return api.get(url);
+  },
+
+  get: (appointmentId) =>
+    api.get(`/admin/appointments/${appointmentId}`),
+
+  cancel: (appointmentId) =>
+    api.put(`/admin/appointments/${appointmentId}/cancel`),
+
+  complete: (appointmentId) =>
+    api.put(`/admin/appointments/${appointmentId}/complete`),
+};
+
+export const patientAPI = {
+  list: (clinicId) =>
+    api.get(`/admin/patients/?clinic_id=${clinicId}`),
+
+  get: (patientId) =>
+    api.get(`/admin/patients/${patientId}`),
 };
 
 export default api;

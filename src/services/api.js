@@ -63,4 +63,36 @@ export const patientAPI = {
     api.get(`/admin/patients/${patientId}`),
 };
 
+export const slotAPI = {
+  list: (clinicId, slotDate = null, status = null) => {
+    let url = `/admin/slots/?clinic_id=${clinicId}`;
+    if (slotDate) url += `&slot_date=${slotDate}`;
+    if (status) url += `&status=${status}`;
+    return api.get(url);
+  },
+
+  bulkCreate: (clinicId, startDate, endDate, openTime, closeTime, duration) =>
+    api.post('/admin/slots/bulk-create', {
+      clinic_id: clinicId,
+      start_date: startDate,
+      end_date: endDate,
+      open_time: openTime,
+      close_time: closeTime,
+      slot_duration_minutes: duration,
+    }),
+
+  delete: (slotId) =>
+    api.delete(`/admin/slots/${slotId}`),
+
+  release: (slotId) =>
+    api.post(`/admin/slots/${slotId}/release`),
+};
+
+export function getApiErrorMessage(err, fallback = 'Something went wrong') {
+  const status = err?.response?.status;
+  if (status === 403) return 'You are not authorized to perform this action.';
+  if (status === 404) return 'The requested resource was not found.';
+  return err?.response?.data?.detail || fallback;
+}
+
 export default api;

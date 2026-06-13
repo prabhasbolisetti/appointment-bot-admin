@@ -4,7 +4,9 @@ import { useAuthStore } from '../store/authStore';
 import {
   clinicAPI,
   appointmentAPI,
-  patientAPI
+  patientAPI,
+  slotAPI,
+  getApiErrorMessage,
 } from '../services/api';
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -419,10 +421,235 @@ function PatientsTab({ clinicId }) {
 }
 // Slots Tab
 function SlotsTab({ clinicId }) {
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showBulkCreate, setShowBulkCreate] = useState(false);
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterStatus, setFilterStatus] = useState(null);
+
+  const [bulkForm, setBulkForm] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    openTime: '09:00',
+    closeTime: '17:00',
+    duration: 30,
+  });
+
+  const fetchSlots = async () => {
+    if (!clinicId) return;
+    setLoading(true);
+    try {
+      const { data } = await slotAPI.list(clinicId, filterDate, filterStatus);
+      setSlots(data);
+    } catch (err) {
+      console.error(err);
+      setSlots([]);
+      alert(getApiErrorMessage(err, 'Failed to load slots'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchSlots();
+  }, [clinicId, filterDate, filterStatus]);
+
+  const handleBulkCreate = async () => {
+    try {
+      const response = await slotAPI.bulkCreate(
+        clinicId,
+        bulkForm.startDate,
+        bulkForm.endDate,
+        bulkForm.openTime,
+        bulkForm.closeTime,
+        bulkForm.duration
+      );
+      alert(`${response.data.created} slots created successfully`);
+      setShowBulkCreate(false);
+      fetchSlots();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Failed to create slots'));
+    }
+  };
+
+  const handleDelete = async (slotId) => {
+    if (!window.confirm('Delete this slot?')) return;
+    try {
+      await slotAPI.delete(slotId);
+      alert('Slot deleted');
+      fetchSlots();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Failed to delete slot'));
+    }
+  };
+
+  const handleRelease = async (slotId) => {
+    if (!window.confirm('Release this held slot?')) return;
+    try {
+      await slotAPI.release(slotId);
+      alert('Slot released');
+      fetchSlots();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Failed to release slot'));
+    }
+  };
+
   return (
     <div className="bg-white p-8 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-6">Slot Management</h2>
-      <p className="text-gray-600">Slot management coming in Phase 5.2</p>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Slot Management</h2>
+        <button
+          onClick={() => setShowBulkCreate(!showBulkCreate)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          {showBulkCreate ? 'Cancel' : '➕ Bulk Create'}
+        </button>
+      </div>
+
+      {showBulkCreate && (
+        <div className="bg-gray-100 p-6 rounded mb-6 space-y-4">
+          <h3 className="font-bold text-lg">Create Slots in Bulk</h3>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
+              <input
+                type="date"
+                value={bulkForm.startDate}
+                onChange={(e) => setBulkForm({ ...bulkForm, startDate: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">End Date</label>
+              <input
+                type="date"
+                value={bulkForm.endDate}
+                onChange={(e) => setBulkForm({ ...bulkForm, endDate: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Open Time</label>
+              <input
+                type="time"
+                value={bulkForm.openTime}
+                onChange={(e) => setBulkForm({ ...bulkForm, openTime: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Close Time</label>
+              <input
+                type="time"
+                value={bulkForm.closeTime}
+                onChange={(e) => setBulkForm({ ...bulkForm, closeTime: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Slot Duration (minutes)</label>
+            <input
+              type="number"
+              value={bulkForm.duration}
+              onChange={(e) => setBulkForm({ ...bulkForm, duration: parseInt(e.target.value, 10) || 30 })}
+              className="w-full px-4 py-2 border rounded-lg"
+            />
+          </div>
+
+          <button
+            onClick={handleBulkCreate}
+            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 font-semibold"
+          >
+            Create Slots
+          </button>
+        </div>
+      )}
+
+      <div className="mb-6 flex gap-4">
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">Date</label>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="px-4 py-2 border rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">Status</label>
+          <select
+            value={filterStatus || ''}
+            onChange={(e) => setFilterStatus(e.target.value || null)}
+            className="px-4 py-2 border rounded-lg"
+          >
+            <option value="">All</option>
+            <option value="available">Available</option>
+            <option value="held">Held</option>
+            <option value="booked">Booked</option>
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div>Loading...</div>
+      ) : slots.length > 0 ? (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border p-3 text-left">Date</th>
+              <th className="border p-3 text-left">Time</th>
+              <th className="border p-3 text-left">Status</th>
+              <th className="border p-3 text-left">Held Until</th>
+              <th className="border p-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map((slot) => (
+              <tr key={slot.id} className="border hover:bg-gray-50">
+                <td className="border p-3">{slot.slot_date}</td>
+                <td className="border p-3">{slot.start_time.substring(0, 5)}</td>
+                <td className="border p-3">
+                  <span className={`px-2 py-1 rounded text-white text-sm ${
+                    slot.status === 'available' ? 'bg-green-500' :
+                    slot.status === 'held' ? 'bg-yellow-500' : 'bg-blue-500'
+                  }`}>
+                    {slot.status}
+                  </span>
+                </td>
+                <td className="border p-3 text-sm">
+                  {slot.held_until ? new Date(slot.held_until).toLocaleTimeString() : '-'}
+                </td>
+                <td className="border p-3 space-x-2">
+                  {slot.status === 'held' && (
+                    <button
+                      onClick={() => handleRelease(slot.id)}
+                      className="bg-yellow-500 text-white px-2 py-1 rounded text-sm hover:bg-yellow-600"
+                    >
+                      Release
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(slot.id)}
+                    className="bg-red-500 text-white px-2 py-1 rounded text-sm hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="text-center text-gray-600 py-8">
+          No slots for selected date. Click "➕ Bulk Create" to generate slots.
+        </div>
+      )}
     </div>
   );
 }

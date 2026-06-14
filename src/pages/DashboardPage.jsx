@@ -10,8 +10,17 @@ import {
 } from '../services/api';
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { admin, logout } = useAuthStore();
+  const { admin, token, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const clinicId = admin?.clinic_id;
+
+  React.useEffect(() => {
+    if (token && !admin?.clinic_id) {
+      logout();
+      navigate('/login');
+    }
+  }, [token, admin, logout, navigate]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -93,10 +102,10 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="flex-1 p-8">
           {activeTab === 'overview' && <OverviewTab admin={admin} />}
-          {activeTab === 'clinic' && <ClinicTab clinicId={admin?.clinic_id} />}
-          {activeTab === 'appointments' && <AppointmentsTab clinicId={admin?.clinic_id} />}
-          {activeTab === 'patients' && <PatientsTab clinicId={admin?.clinic_id} />}
-          {activeTab === 'slots' && <SlotsTab clinicId={admin?.clinic_id} />}
+          {activeTab === 'clinic' && <ClinicTab clinicId={clinicId} />}
+          {activeTab === 'appointments' && <AppointmentsTab clinicId={clinicId} />}
+          {activeTab === 'patients' && <PatientsTab clinicId={clinicId} />}
+          {activeTab === 'slots' && <SlotsTab clinicId={clinicId} />}
         </div>
       </div>
     </div>
@@ -135,14 +144,19 @@ function ClinicTab({ clinicId }) {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   React.useEffect(() => {
+    if (!clinicId) {
+      setLoading(false);
+      return;
+    }
     const fetchClinic = async () => {
       try {
         const { data } = await clinicAPI.getClinic(clinicId);
         setClinic(data);
         setFormData(data);
-        setLoading(false);
       } catch (err) {
         console.error(err);
+        alert(getApiErrorMessage(err, 'Failed to load clinic'));
+      } finally {
         setLoading(false);
       }
     };
@@ -163,6 +177,7 @@ function ClinicTab({ clinicId }) {
     }
   };
   if (loading) return <div>Loading...</div>;
+  if (!clinicId) return <div className="text-gray-600">Please log in again to load clinic settings.</div>;
   return (
     <div className="bg-white p-8 rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold mb-6">Clinic Settings</h2>
@@ -269,46 +284,79 @@ function ClinicTab({ clinicId }) {
 // Appointments Tab
 function AppointmentsTab({ clinicId }) {
   const [appointments, setAppointments] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(null);
+  const navigate = useNavigate();
+
   React.useEffect(() => {
-    const fetchAppointments = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await appointmentAPI.list(filter);
-        setAppointments(data);
+        const [apptRes, statsRes] = await Promise.all([
+          appointmentAPI.list(filter),
+          appointmentAPI.getStats()
+        ]);
+        setAppointments(apptRes.data);
+        setStats(statsRes.data);
         setLoading(false);
       } catch (err) {
         console.error(err);
         setLoading(false);
       }
     };
-    fetchAppointments();
+    fetchData();
   }, [filter]);
-  const handleCancel = async (appointmentId) => {
-    try {
-      await appointmentAPI.cancel(appointmentId);
-      setAppointments((prev) => prev.filter((a) => a.id !== appointmentId));
-      alert('Appointment cancelled');
-    } catch (err) {
-      alert('Failed to cancel appointment');
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'confirmed': return 'bg-green-500';
+      case 'pending': return 'bg-yellow-500';
+      case 'completed': return 'bg-blue-500';
+      case 'cancelled': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   };
-  const handleComplete = async (appointmentId) => {
-    try {
-      await appointmentAPI.complete(appointmentId);
-      const updated = appointments.map((a) =>
-        a.id === appointmentId ? { ...a, status: 'completed' } : a
-      );
-      setAppointments(updated);
-      alert('Appointment marked as completed');
-    } catch (err) {
-      alert('Failed to complete appointment');
+
+  const getPaymentColor = (status) => {
+    switch (status) {
+      case 'paid': return 'bg-green-500';
+      case 'unpaid': return 'bg-yellow-500';
+      case 'refunded': return 'bg-gray-500';
+      default: return 'bg-red-500';
     }
   };
+
   if (loading) return <div>Loading...</div>;
+
   return (
     <div className="bg-white p-8 rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold mb-6">Appointments</h2>
+
+      {stats && (
+        <div className="grid grid-cols-5 gap-4 mb-6">
+          <div className="bg-blue-100 p-4 rounded">
+            <p className="text-sm text-gray-600">Total</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
+          </div>
+          <div className="bg-green-100 p-4 rounded">
+            <p className="text-sm text-gray-600">Confirmed</p>
+            <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+          </div>
+          <div className="bg-purple-100 p-4 rounded">
+            <p className="text-sm text-gray-600">Completed</p>
+            <p className="text-2xl font-bold text-purple-600">{stats.completed}</p>
+          </div>
+          <div className="bg-red-100 p-4 rounded">
+            <p className="text-sm text-gray-600">Cancelled</p>
+            <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+          </div>
+          <div className="bg-yellow-100 p-4 rounded">
+            <p className="text-sm text-gray-600">Completion Rate</p>
+            <p className="text-2xl font-bold text-yellow-600">{stats.completion_rate}%</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setFilter(null)}
@@ -328,11 +376,18 @@ function AppointmentsTab({ clinicId }) {
         >
           Pending
         </button>
+        <button
+          onClick={() => setFilter('completed')}
+          className={`px-4 py-2 rounded ${filter === 'completed' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+        >
+          Completed
+        </button>
       </div>
+
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-200">
-            <th className="border p-3 text-left">ID</th>
+            <th className="border p-3 text-left">Date/Time</th>
             <th className="border p-3 text-left">Patient</th>
             <th className="border p-3 text-left">Status</th>
             <th className="border p-3 text-left">Payment</th>
@@ -342,34 +397,36 @@ function AppointmentsTab({ clinicId }) {
         <tbody>
           {appointments.map((appt) => (
             <tr key={appt.id} className="border hover:bg-gray-50">
-              <td className="border p-3 text-sm">{appt.id.slice(0, 8)}...</td>
-              <td className="border p-3">{appt.patient_id}</td>
+              <td className="border p-3 text-sm">
+                {appt.slots?.slot_date} {appt.slots?.start_time?.substring(0, 5)}
+              </td>
+              <td className="border p-3">{appt.patients?.whatsapp_number}</td>
               <td className="border p-3">
-                <span className={`px-2 py-1 rounded text-white text-sm ${
-                  appt.status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'
-                }`}>
+                <span className={`px-2 py-1 rounded text-white text-sm ${getStatusColor(appt.status)}`}>
                   {appt.status}
                 </span>
               </td>
-              <td className="border p-3">{appt.payment_status}</td>
-              <td className="border p-3 space-x-2">
+              <td className="border p-3">
+                <span className={`px-2 py-1 rounded text-white text-sm ${getPaymentColor(appt.payment_status)}`}>
+                  {appt.payment_status}
+                </span>
+              </td>
+              <td className="border p-3">
                 <button
-                  onClick={() => handleComplete(appt.id)}
-                  className="bg-green-500 text-white px-2 py-1 rounded text-sm hover:bg-green-600"
+                  onClick={() => navigate(`/appointments/${appt.id}`)}
+                  className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
                 >
-                  Complete
-                </button>
-                <button
-                  onClick={() => handleCancel(appt.id)}
-                  className="bg-red-500 text-white px-2 py-1 rounded text-sm hover:bg-red-600"
-                >
-                  Cancel
+                  View Details
                 </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {appointments.length === 0 && (
+        <div className="text-center text-gray-600 py-8">No appointments found</div>
+      )}
     </div>
   );
 }
@@ -378,19 +435,25 @@ function PatientsTab({ clinicId }) {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   React.useEffect(() => {
+    if (!clinicId) {
+      setLoading(false);
+      return;
+    }
     const fetchPatients = async () => {
       try {
         const { data } = await patientAPI.list(clinicId);
         setPatients(data);
-        setLoading(false);
       } catch (err) {
         console.error(err);
+        alert(getApiErrorMessage(err, 'Failed to load patients'));
+      } finally {
         setLoading(false);
       }
     };
     fetchPatients();
   }, [clinicId]);
   if (loading) return <div>Loading...</div>;
+  if (!clinicId) return <div className="text-gray-600">Please log in again to load patients.</div>;
   return (
     <div className="bg-white p-8 rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold mb-6">Patients ({patients.length})</h2>

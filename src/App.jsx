@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import AppointmentDetailPage from './pages/AppointmentDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -18,7 +19,15 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/appointments/:appointmentId"
+          element={
+            <ProtectedRoute>
+              <AppointmentDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );

@@ -48,11 +48,17 @@ export const appointmentAPI = {
   get: (appointmentId) =>
     api.get(`/admin/appointments/${appointmentId}`),
 
+  getStats: () =>
+    api.get('/admin/appointments/stats/overview'),
+
   cancel: (appointmentId) =>
     api.put(`/admin/appointments/${appointmentId}/cancel`),
 
   complete: (appointmentId) =>
     api.put(`/admin/appointments/${appointmentId}/complete`),
+
+  refund: (appointmentId) =>
+    api.post(`/admin/appointments/${appointmentId}/refund`),
 };
 
 export const patientAPI = {

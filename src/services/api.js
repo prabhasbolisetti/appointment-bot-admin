@@ -102,3 +102,32 @@ export function getApiErrorMessage(err, fallback = 'Something went wrong') {
 }
 
 export default api;
+
+export const emailAPI = {
+  getSettings: () =>
+    api.get('/admin/email-settings/'),
+
+  updateSettings: (settings) =>
+    api.put('/admin/email-settings/', settings),
+};
+
+export const paymentAPI = {
+  createOrder: (appointmentId, amount) =>
+    api.post('/payments/create-order', {
+      appointment_id: appointmentId,
+      amount,
+    }),
+
+  verifyPayment: (orderId, paymentId, signature) =>
+    api.post('/payments/verify', {
+      order_id: orderId,
+      payment_id: paymentId,
+      signature,
+    }),
+
+  getStatus: (appointmentId) =>
+    api.get(`/payments/status/${appointmentId}`),
+
+  refund: (appointmentId) =>
+    api.post(`/payments/refund/${appointmentId}`),
+};

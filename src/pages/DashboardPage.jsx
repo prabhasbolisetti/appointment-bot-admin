@@ -7,6 +7,7 @@ import {
   patientAPI,
   slotAPI,
   getApiErrorMessage,
+  emailAPI,
 } from '../services/api';
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -96,6 +97,16 @@ export default function DashboardPage() {
               >
                 🗓️ Slots
               </button>
+              <button
+                onClick={() => setActiveTab('email')}
+                className={`w-full text-left px-4 py-2 rounded ${
+                  activeTab === 'email'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                📧 Email Settings
+              </button>
             </nav>
           </div>
         </div>
@@ -106,7 +117,144 @@ export default function DashboardPage() {
           {activeTab === 'appointments' && <AppointmentsTab clinicId={clinicId} />}
           {activeTab === 'patients' && <PatientsTab clinicId={clinicId} />}
           {activeTab === 'slots' && <SlotsTab clinicId={clinicId} />}
+          {activeTab === 'email' && <EmailSettingsTab />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EmailSettingsTab() {
+  const [settings, setSettings] = useState({
+    send_booking_confirmation: true,
+    send_reminders: true,
+    send_cancellation_notification: true,
+    reminder_hours_before: 1,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data } = await emailAPI.getSettings();
+        setSettings(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleToggle = (key) => {
+    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setSettings((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await emailAPI.updateSettings(settings);
+      alert('Email settings saved successfully');
+    } catch (err) {
+      alert('Failed to save email settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div className="bg-white p-8 rounded-lg shadow-lg max-w-2xl">
+      <h2 className="text-2xl font-bold mb-6">📧 Email Notification Settings</h2>
+
+      <div className="space-y-6">
+        {/* Booking Confirmation */}
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div>
+            <h3 className="font-bold text-gray-800">Booking Confirmation Email</h3>
+            <p className="text-sm text-gray-600">Send email when appointment is confirmed</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.send_booking_confirmation}
+            onChange={() => handleToggle('send_booking_confirmation')}
+            className="w-6 h-6 cursor-pointer"
+          />
+        </div>
+
+        {/* Reminders */}
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div>
+            <h3 className="font-bold text-gray-800">Appointment Reminders</h3>
+            <p className="text-sm text-gray-600">Send reminder before appointment</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.send_reminders}
+            onChange={() => handleToggle('send_reminders')}
+            className="w-6 h-6 cursor-pointer"
+          />
+        </div>
+
+        {/* Reminder Timing */}
+        {settings.send_reminders && (
+          <div className="p-4 border rounded-lg bg-gray-50">
+            <label className="block font-semibold text-gray-700 mb-2">
+              Send reminder how many hours before appointment?
+            </label>
+            <select
+              name="reminder_hours_before"
+              value={settings.reminder_hours_before}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border rounded-lg"
+            >
+              <option value={1}>1 hour before</option>
+              <option value={2}>2 hours before</option>
+              <option value={4}>4 hours before</option>
+              <option value={24}>1 day before</option>
+            </select>
+          </div>
+        )}
+
+        {/* Cancellation Notification */}
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div>
+            <h3 className="font-bold text-gray-800">Cancellation Notification</h3>
+            <p className="text-sm text-gray-600">Send email when appointment is cancelled</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.send_cancellation_notification}
+            onChange={() => handleToggle('send_cancellation_notification')}
+            className="w-6 h-6 cursor-pointer"
+          />
+        </div>
+
+        {/* Save Button */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 font-semibold"
+        >
+          {saving ? 'Saving...' : 'Save Email Settings'}
+        </button>
+      </div>
+
+      {/* Email Templates Info */}
+      <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+        <h3 className="font-bold text-blue-900 mb-2">📝 Email Templates</h3>
+        <p className="text-sm text-blue-800">
+          Email templates are automatically generated based on your clinic information.
+          Each email includes appointment details, clinic contact info, and clear instructions.
+        </p>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import AppointmentDetailPage from './pages/AppointmentDetailPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import PaymentPage from './pages/PaymentPage';
 
 function App() {
   return (
@@ -28,6 +29,14 @@ function App() {
           }
         />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/payment/:appointmentId"
+          element={
+            <ProtectedRoute>
+              <PaymentPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );

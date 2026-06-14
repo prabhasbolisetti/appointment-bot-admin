@@ -153,6 +153,14 @@ export default function AppointmentDetailPage() {
                 💰 Process Refund
               </button>
             )}
+            {appointment.payment_status === 'unpaid' && (
+              <button
+                onClick={() => navigate(`/payment/${appointmentId}`)}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                💳 Make Payment
+              </button>
+            )}
           </div>
         </div>
       </div>
